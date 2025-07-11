@@ -73,34 +73,44 @@ def gerar_colunas_deslizantes(historico):
         colunas.append(col)
     return colunas
 
-# Detecta reescrita entre colunas
+# Detecta múltiplas reescritas estruturais
 colunas = gerar_colunas_deslizantes(st.session_state.historico)
-reescrita_detectada = None
+reescritas = []
 
-if len(colunas) >= 2:
-    atual = colunas[0]
+for i in range(len(colunas)):
+    atual = colunas[i]
     cod_atual = codificar_coluna(atual)
-    for i in range(1, len(colunas)):
-        if codificar_coluna(colunas[i]) == cod_atual:
-            reescrita_detectada = {
-                "indice": i,
+    for j in range(i + 1, len(colunas)):
+        if codificar_coluna(colunas[j]) == cod_atual:
+            proxima_cor = st.session_state.historico[j + 3] if j + 3 < len(st.session_state.historico) else None
+            reescritas.append({
                 "estrutura": cod_atual,
-                "coluna_antiga": colunas[i],
+                "indice_antigo": j,
+                "indice_novo": i,
+                "coluna_antiga": colunas[j],
                 "coluna_nova": atual,
-                "sugerida": st.session_state.historico[i - 1] if i - 1 >= 0 else None
-            }
+                "sugerida": proxima_cor
+            })
             break
 
 st.divider()
 st.markdown("## 🔍 Análise de Reescrita Estrutural (colunas deslizantes)")
 
-if reescrita_detectada:
-    st.success(f"Coluna 1 reescreve coluna {reescrita_detectada['indice'] + 1} com estrutura '{reescrita_detectada['estrutura']}'")
-    st.write("🔹 Coluna antiga:", " ".join(cores[c] for c in reescrita_detectada["coluna_antiga"]))
-    st.write("🔹 Coluna atual:", " ".join(cores[c] for c in reescrita_detectada["coluna_nova"]))
-
-    if reescrita_detectada["sugerida"]:
-        st.markdown("### 🧠 Sugestão de próxima jogada")
-        st.info(f"Próxima cor sugerida: {cores[reescrita_detectada['sugerida']]}")
+if reescritas:
+    for r in reescritas:
+        st.success(f"Coluna {r['indice_novo']+1} reescreve a coluna {r['indice_antigo']+1} com estrutura '{r['estrutura']}'")
+        st.write("🔹 Coluna antiga:", " ".join(cores[c] for c in r["coluna_antiga"]))
+        st.write("🔹 Coluna atual:", " ".join(cores[c] for c in r["coluna_nova"]))
+        if r["sugerida"]:
+            st.markdown("### 🧠 Sugestão de próxima jogada")
+            st.info(f"Próxima cor sugerida: {cores[r['sugerida']]}")
 else:
     st.warning("Nenhuma reescrita detectada ainda. Aguarde formação de colunas (mínimo 3 jogadas).")
+
+# Mostrar todas as colunas formadas com estrutura
+st.divider()
+st.markdown("## 🧱 Colunas Formadas")
+for idx, col in enumerate(colunas):
+    estrutura = codificar_coluna(col)
+    visual = " ".join(cores[c] for c in col)
+    st.markdown(f"**Coluna {idx+1}**: {visual} → `{estrutura}`")
