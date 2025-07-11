@@ -1,6 +1,5 @@
 import streamlit as st
 from collections import defaultdict
-import re
 
 # Emojis para cada cor
 cores = {
@@ -70,7 +69,6 @@ def detectar_padroes_complexos(historico, janela=5):
     
     # Extrair a primeira linha completa e o início da segunda
     primeira_linha = historico[:9]
-    segunda_linha = historico[9:9+janela] if len(historico) >= 9+janela else []
     
     # Padrões a serem detectados
     padroes = {
@@ -79,12 +77,14 @@ def detectar_padroes_complexos(historico, janela=5):
     }
     
     # Analisar todo o histórico
-    for i in range(len(historico) - 9 - janela):
-        # Verificar padrão de cores
+    for i in range(len(historico) - janela):
         segmento = historico[i:i+janela]
+        
+        # Verificar padrão de cores
         chave_cores = "".join(segmento)
-        proxima_jogada = historico[i+janela]
-        padroes["cores"][chave_cores].append(proxima_jogada)
+        if i+janela < len(historico):
+            proxima_jogada = historico[i+janela]
+            padroes["cores"][chave_cores].append(proxima_jogada)
         
         # Verificar padrão estrutural
         mapa = {}
@@ -96,7 +96,8 @@ def detectar_padroes_complexos(historico, janela=5):
                 letra = chr(ord(letra) + 1)
             codigo.append(mapa[item])
         chave_estrutura = "".join(codigo)
-        padroes["estrutura"][chave_estrutura].append(proxima_jogada)
+        if i+janela < len(historico):
+            padroes["estrutura"][chave_estrutura].append(proxima_jogada)
     
     # Verificar padrão atual no final da primeira linha
     final_primeira_linha = primeira_linha[-janela:]
@@ -198,7 +199,7 @@ if resultados:
             percentual = count / len(resultado["detalhes"]) * 100
             st.write(f"  - {cores.get(jogada)}: {count} vezes ({percentual:.1f}%)")
         
-        st.write(f"- Total de ocorrências analisadas: {len(resultado['detalhes']}")
+        st.write(f"- Total de ocorrências analisadas: {len(resultado['detalhes'])}")  # CORREÇÃO AQUI
         
         # Espaçamento entre padrões
         st.write("")
