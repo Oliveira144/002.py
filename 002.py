@@ -1,126 +1,48 @@
 import streamlit as st
-from collections import Counter
 
-cores = {
-    "C": "🔴",  # Casa
-    "V": "🔵",  # Visitante
-    "E": "🟡",  # Empate
-}
+Emojis para cada cor
 
-# Inicializa histórico
-if "historico" not in st.session_state:
-    st.session_state.historico = []
+cores = { "C": "🔴",  # Casa "V": "🔵",  # Visitante "E": "🟡",  # Empate }
 
-st.set_page_config(page_title="FS Padrões Pro", layout="centered")
-st.title("🎯 Sugestão Inteligente de Próxima Jogada (baseada em reescrita)")
+Inicializa o histórico
 
-# Botões
-col1, col2, col3, col4, col5 = st.columns(5)
-with col1:
-    if st.button("🔴 Casa"):
-        st.session_state.historico.append("C")
-with col2:
-    if st.button("🔵 Visitante"):
-        st.session_state.historico.append("V")
-with col3:
-    if st.button("🟡 Empate"):
-        st.session_state.historico.append("E")
-with col4:
-    if st.button("↩️ Desfazer") and st.session_state.historico:
-        st.session_state.historico.pop()
-with col5:
-    if st.button("🧹 Limpar"):
-        st.session_state.historico = []
+if "historico" not in st.session_state: st.session_state.historico = []
 
-# Codifica padrões estruturais
-def codificar_estrutura(lista):
-    mapa = {}
-    codigo = []
-    letra = 'A'
-    for item in lista:
-        if item not in mapa:
-            mapa[item] = letra
-            letra = chr(ord(letra) + 1)
-        codigo.append(mapa[item])
-    return "".join(codigo)
+Configuração da página
 
-# Exibe blocos invertendo ordem para o padrão do jogo real
-def mostrar_blocos(historico):
-    blocos = [historico[i:i+27] for i in range(0, len(historico), 27)]
-    for idx, bloco in enumerate(reversed(blocos)):
-        st.markdown(f"### 📦 Bloco {len(blocos) - idx} (mais recente acima)")
-        for linha in range(3):
-            ini = linha * 9
-            fim = ini + 9
-            linha_jogadas = bloco[ini:fim][::-1]  # ← Inverte para mostrar do mais recente ao mais antigo
-            visual = " ".join(cores.get(x, x) for x in linha_jogadas)
-            st.markdown(f"Linha {linha + 1}: {visual}")
-    return blocos
+st.set_page_config(page_title="FS Padrões Pro", layout="centered") st.title("📊 FS Padrões Pro – Análise de Colunas e Blocos")
 
-# Blocos e histórico
+Botões para entrada
+
+col1, col2, col3, col4, col5 = st.columns(5) with col1: if st.button("🔴 Casa"): st.session_state.historico.insert(0, "C") with col2: if st.button("🔵 Visitante"): st.session_state.historico.insert(0, "V") with col3: if st.button("🟡 Empate"): st.session_state.historico.insert(0, "E") with col4: if st.button("↩️ Desfazer") and st.session_state.historico: st.session_state.historico.pop(0) with col5: if st.button("🧹 Limpar"): st.session_state.historico = []
+
 st.divider()
-st.markdown("## 📋 Histórico por blocos (27 jogadas)")
-blocos = mostrar_blocos(st.session_state.historico) if st.session_state.historico else []
-padrao_encontrado = False
-proxima_cor = None
 
-# Análise entre blocos
-if len(blocos) >= 2:
-    bloco_atual = blocos[-1]
-    bloco_anterior = blocos[-2]
+Mostrar histórico em blocos de 27 (3 linhas de 9)
 
-    for tamanho in range(4, 9):
-        novo_trecho = bloco_atual[:tamanho]
-        for i in range(len(bloco_anterior) - tamanho + 1):
-            trecho_antigo = bloco_anterior[i:i+tamanho]
+def mostrar_blocos(historico): blocos = [historico[i:i+27] for i in range(0, len(historico), 27)] for idx, bloco in enumerate(blocos): st.markdown(f"### 🧱 Bloco {idx + 1} (mais recente acima)") linhas = [bloco[i:i+9] for i in range(0, len(bloco), 9)] linhas = linhas[::-1]  # Inverter para mostrar linha 1 como mais recente for lidx, linha_jogadas in enumerate(linhas): visual = " ".join(cores.get(x, x) for x in linha_jogadas) st.markdown(f"Linha {lidx + 1}: {visual}")
 
-            if novo_trecho == trecho_antigo:
-                proxima_cor = bloco_anterior[i + tamanho] if i + tamanho < len(bloco_anterior) else None
-                padrao_encontrado = True
-                st.success(f"🔁 Reescrita Exata detectada (tamanho {tamanho})")
-                break
+st.markdown("## 📋 Histórico por blocos (cada 27 jogadas)") if st.session_state.historico: mostrar_blocos(st.session_state.historico) else: st.info("Nenhuma jogada ainda registrada.")
 
-            estrutura_novo = codificar_estrutura(novo_trecho)
-            estrutura_antigo = codificar_estrutura(trecho_antigo)
-            if estrutura_novo == estrutura_antigo:
-                proxima_cor = bloco_anterior[i + tamanho] if i + tamanho < len(bloco_anterior) else None
-                padrao_encontrado = True
-                st.info(f"🔄 Reescrita Estrutural detectada: `{estrutura_novo}`")
-                break
+Codifica uma coluna (lista de 3 jogadas) para estrutura simbólica (ex: ABA)
 
-            diffs = sum(1 for a, b in zip(novo_trecho, trecho_antigo) if a != b)
-            if diffs <= 2:
-                proxima_cor = bloco_anterior[i + tamanho] if i + tamanho < len(bloco_anterior) else None
-                padrao_encontrado = True
-                st.warning(f"⚠️ Reescrita com pequenas alterações detectada (diferença de {diffs})")
-                break
+def codificar_coluna(col): mapa = {} codigo = [] letra = "A" for cor in col: if cor not in mapa: mapa[cor] = letra letra = chr(ord(letra) + 1) codigo.append(mapa[cor]) return "".join(codigo)
 
-        if padrao_encontrado:
-            break
+Gera colunas deslizantes (ex: [0:3], [1:4], [2:5]...)
 
-# Sugestão de jogada no topo
-st.divider()
-st.markdown("## 🎯 Sugestão com base em padrão detectado")
+def gerar_colunas_deslizantes(historico): colunas = [] for i in range(len(historico) - 2): col = historico[i:i+3] colunas.append(col) return colunas
 
-if padrao_encontrado and proxima_cor:
-    st.markdown(f"### 👉 Próxima cor sugerida: **{cores[proxima_cor]}**")
-else:
-    st.info("Aguardando padrão confiável para sugerir próxima jogada.")
+Detecta múltiplas reescritas estruturais
 
-# Frequência de padrões
-st.divider()
-st.markdown("## 📊 Frequência de Padrões Estruturais (últimas jogadas)")
+colunas = gerar_colunas_deslizantes(st.session_state.historico) reescritas = []
 
-estruturas = []
-h = st.session_state.historico
-for i in range(len(h) - 2):
-    trecho = h[i:i+3]
-    estrutura = codificar_estrutura(trecho)
-    estruturas.append(estrutura)
+for i in range(len(colunas)): atual = colunas[i] cod_atual = codificar_coluna(atual) for j in range(i + 1, len(colunas)): if codificar_coluna(colunas[j]) == cod_atual: proxima_cor = st.session_state.historico[j + 3] if j + 3 < len(st.session_state.historico) else None reescritas.append({ "estrutura": cod_atual, "indice_antigo": j, "indice_novo": i, "coluna_antiga": colunas[j], "coluna_nova": atual, "sugerida": proxima_cor }) break
 
-contagem = Counter(estruturas)
-if contagem:
-    for estrutura, qtd in contagem.most_common():
-        st.markdown(f"🔹 `{estrutura}` → {qtd}x")
-else:
-    st.info("Ainda não há dados suficientes para mostrar padrões estruturais.")
+st.divider() st.markdown("## 🔍 Análise de Reescrita Estrutural (colunas deslizantes)")
+
+if reescritas: for r in reescritas: st.success(f"Coluna {r['indice_novo']+1} reescreve a coluna {r['indice_antigo']+1} com estrutura '{r['estrutura']}'") st.write("🔹 Coluna antiga:", " ".join(cores[c] for c in r["coluna_antiga"])) st.write("🔹 Coluna atual:", " ".join(cores[c] for c in r["coluna_nova"])) if r["sugerida"]: st.markdown("### 🧠 Sugestão de próxima jogada") st.info(f"Próxima cor sugerida: {cores[r['sugerida']]}") else: st.warning("Nenhuma reescrita detectada ainda. Aguarde formação de colunas (mínimo 3 jogadas).")
+
+Mostrar todas as colunas formadas com estrutura
+
+st.divider() st.markdown("## 🧱 Colunas Formadas") for idx, col in enumerate(colunas): estrutura = codificar_coluna(col) visual = " ".join(cores[c] for c in col) st.markdown(f"Coluna {idx+1}: {visual} → {estrutura}")
+
