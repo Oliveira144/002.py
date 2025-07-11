@@ -1,4 +1,5 @@
 import streamlit as st
+from collections import defaultdict
 
 # Emojis para cada cor
 cores = {
@@ -13,7 +14,7 @@ if "historico" not in st.session_state:
 
 # Configuração da página
 st.set_page_config(page_title="FS Padrões Pro", layout="centered")
-st.title("📊 FS Padrões Pro – Análise Dinâmica de Transições")
+st.title("📊 FS Padrões Pro – Detecção Inteligente de Padrões")
 
 # Botões para entrada
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -61,12 +62,15 @@ if st.session_state.historico:
 else:
     st.info("Nenhuma jogada ainda registrada.")
 
-# Função para analisar transições entre linhas
-def analisar_transicoes(historico):
+# Função para detectar padrões de reescrita na primeira linha
+def detectar_padrao_reescrita(historico):
     if len(historico) < 15:  # Mínimo de 1 linha completa + 6 jogadas
         return None
     
-    # Coletar todas as linhas completas
+    # Extrair a primeira linha completa (9 jogadas)
+    primeira_linha = historico[:9]
+    
+    # Coletar todas as linhas completas do histórico
     linhas_completas = []
     for i in range(0, len(historico), 9):
         if i + 9 <= len(historico):
@@ -76,122 +80,85 @@ def analisar_transicoes(historico):
     if len(linhas_completas) < 2:
         return None
     
-    # Foco no final da primeira linha (últimas 3-5 jogadas)
-    primeira_linha = linhas_completas[0]
-    final_primeira_linha = primeira_linha[-3:]
-    
-    # Verificar transição para segunda linha
-    segunda_linha = historico[9:12] if len(historico) >= 12 else []  # Primeiros 3 elementos da segunda linha
-    
-    # Procurar padrões históricos semelhantes
+    # Procurar padrões de reescrita
     padroes_detectados = []
     for idx, linha in enumerate(linhas_completas[1:]):
-        # Verificar final de linha histórica
-        final_linha_historica = linha[-3:]
-        
-        # Comparar padrão do final da linha
-        if final_linha_historica == final_primeira_linha:
-            # Verificar o que aconteceu após esse padrão (transição)
-            proximo_bloco_idx = (idx + 1) * 9 + 6  # Posição após o padrão
-            if proximo_bloco_idx + 3 < len(historico):
-                transicao_historica = historico[proximo_bloco_idx:proximo_bloco_idx+3]
-                
-                # Calcular estatísticas de transição
-                contagem = {"C": 0, "V": 0, "E": 0}
-                for item in transicao_historica:
-                    if item in contagem:
-                        contagem[item] += 1
-                
-                padroes_detectados.append({
-                    "padrao_final": final_linha_historica,
-                    "transicao": transicao_historica,
-                    "contagem": contagem,
-                    "posicao_historica": proximo_bloco_idx
-                })
+        # Verificar se a linha atual reescreve um padrão anterior
+        if linha == primeira_linha:
+            # Encontrar a próxima jogada após o padrão histórico
+            posicao_padrao = (idx + 1) * 9
+            if posicao_padrao < len(historico):
+                proxima_jogada = historico[posicao_padrao]
+                padroes_detectados.append(proxima_jogada)
     
-    # Se encontrou padrões, determinar sugestão mais provável
+    # Se encontrou padrões, retornar a sugestão mais frequente
     if padroes_detectados:
-        # Contagem agregada de todas as transições históricas
-        contagem_agregada = {"C": 0, "V": 0, "E": 0}
-        total_padroes = len(padroes_detectados)
+        contagem = defaultdict(int)
+        for jogada in padroes_detectados:
+            contagem[jogada] += 1
         
-        for padrao in padroes_detectados:
-            for cor, count in padrao["contagem"].items():
-                contagem_agregada[cor] += count
-        
-        # Determinar sugestão mais frequente
-        sugestao = max(contagem_agregada, key=contagem_agregada.get)
-        confianca = contagem_agregada[sugestao] / (total_padroes * 3) * 100
+        # Ordenar por frequência
+        sugestao = max(contagem, key=contagem.get)
+        confianca = contagem[sugestao] / len(padroes_detectados)
         
         return {
-            "final_primeira_linha": final_primeira_linha,
-            "transicao_atual": segunda_linha,
-            "padroes_similares": len(padroes_detectados),
+            "padrao": primeira_linha,
+            "ocorrencias": len(padroes_detectados),
             "sugestao": sugestao,
             "confianca": confianca,
-            "contagem_agregada": contagem_agregada,
-            "historico_transicoes": [p["transicao"] for p in padroes_detectados]
+            "historico": padroes_detectados
         }
     
     return None
 
-# Análise de transições
+# Análise de padrões
 st.divider()
-st.markdown("## 🔄 Análise de Transição Entre Linhas")
+st.markdown("## 🔍 Análise de Reescrita na Primeira Linha")
 
-resultado = analisar_transicoes(st.session_state.historico)
+resultado = detectar_padrao_reescrita(st.session_state.historico)
 
 if resultado:
     # Mostrar detecção
-    st.success(f"**🔍 Padrão Detectado no Final da Primeira Linha!**")
+    st.success(f"**🔁 Padrão Detectado!**")
     
     # Visualização do padrão
-    padrao_final = " ".join([cores.get(x, x) for x in resultado["final_primeira_linha"]])
-    st.markdown(f"- **Padrão no final da 1ª linha:** {padrao_final}")
-    
-    # Visualização da transição atual
-    if resultado["transicao_atual"]:
-        transicao_atual = " ".join([cores.get(x, x) for x in resultado["transicao_atual"]])
-        st.markdown(f"- **Transição atual (2ª linha):** {transicao_atual}")
+    padrao_visual = " ".join([cores.get(x, x) for x in resultado["padrao"]])
+    st.markdown(f"- **Padrão na 1ª linha:** {padrao_visual}")
+    st.markdown(f"- **Ocorrências históricas:** {resultado['ocorrencias']} vezes")
     
     # Sugestão única com justificativa
     st.divider()
-    st.markdown(f"## 🎯 Sugestão: {cores.get(resultado['sugestao'])}")  # CORREÇÃO AQUI
+    st.markdown(f"## 🎯 Sugestão: {cores.get(resultado['sugestao'])}")
     
     # Justificativa detalhada
     st.info("**Justificativa Técnica:**")
-    st.write(f"- Padrão detectado **{resultado['padroes_similares']} vezes** no histórico")
-    st.write(f"- Após este padrão, as transições foram:")
+    st.write(f"- Após ocorrências anteriores deste mesmo padrão, a próxima jogada foi:")
     
-    # Mostrar transições históricas
-    for i, trans in enumerate(resultado["historico_transicoes"]):
-        visual = " ".join([cores.get(x, x) for x in trans])
-        st.write(f"  → Ciclo {i+1}: {visual}")
+    # Mostrar histórico de transições
+    for i, jogada in enumerate(resultado["historico"]):
+        st.write(f"  → Ocorrência {i+1}: {cores.get(jogada)}")
     
-    st.write(f"- **Distribuição estatística:**")
-    for cor, count in resultado["contagem_agregada"].items():
-        percentual = count / (resultado['padroes_similares'] * 3) * 100
-        st.write(f"  - {cores.get(cor)}: {count} ocorrências ({percentual:.1f}%)")
-    
-    st.write(f"- **Nível de confiança:** {resultado['confianca']:.1f}%")
+    st.write(f"- **Frequência de sugestão:** {resultado['confianca']*100:.1f}%")
+    st.write("- A análise considera reescrita completa da primeira linha")
     
     # Explicação do comportamento
     st.divider()
-    st.markdown("### 📊 Comportamento Típico Deste Padrão:")
-    st.write("1. O padrão no final da primeira linha indica uma **tendência de ruptura**")
-    st.write("2. A transição para a segunda linha geralmente **mantém ou inverte** o fluxo")
-    st.write("3. A sugestão considera a resposta estatística mais comum após este padrão")
+    st.markdown("### 📊 Comportamento Típico:")
+    st.write("1. Quando a primeira linha se repete completamente (reescrita)")
+    st.write("2. O sistema sugere a jogada mais frequente após esse padrão")
+    st.write("3. Padrões com mais ocorrências têm maior confiabilidade")
     
 else:
     if len(st.session_state.historico) >= 15:
-        st.warning("Nenhum padrão recorrente detectado no final da primeira linha. Continue registrando jogadas.")
+        st.warning("Nenhum padrão de reescrita detectado na primeira linha.")
+        st.info("Dica: Continue registrando jogadas para aumentar a base de padrões históricos")
     else:
         st.info("Registre pelo menos 15 jogadas (1 linha completa + 6 jogadas) para ativar a análise")
 
 st.divider()
-st.markdown("### 🔬 Como Funciona a Análise:")
-st.write("1. **Foco no final da 1ª linha:** Analisa os últimos 3 elementos da linha atual")
-st.write("2. **Detecta padrões de reescrita:** Busca ocorrências históricas com mesmo padrão final")
-st.write("3. **Analisa transições:** Examina como o sistema se comportou após esses padrões")
-st.write("4. **Sugestão única:** Recomenda a jogada com maior probabilidade estatística")
-st.write("5. **Comportamento dinâmico:** Considera tanto repetições quanto mudanças de padrão")
+st.markdown("### 🔬 Como Funciona a Detecção:")
+st.write("1. **Foco na primeira linha completa:** Analisa os 9 elementos da linha atual")
+st.write("2. **Busca reescrita completa:** Procura ocorrências idênticas no histórico")
+st.write("3. **Analisa transições:** Examina a jogada imediatamente após cada ocorrência")
+st.write("4. **Sugestão única:** Recomenda a jogada mais frequente após o padrão")
+st.write("5. **Confiança estatística:** Calcula probabilidade com base em ocorrências históricas")
