@@ -1,20 +1,20 @@
 import streamlit as st
 from collections import Counter
 
-# Emojis para cada cor
+# Emojis
 cores = {
     "C": "🔴",  # Casa
     "V": "🔵",  # Visitante
     "E": "🟡",  # Empate
 }
 
-# Inicializa o histórico
+# Histórico
 if "historico" not in st.session_state:
     st.session_state.historico = []
 
-# Configuração da página
+# Página
 st.set_page_config(page_title="FS Padrões Pro", layout="centered")
-st.title("📊 FS Padrões Pro – Análise Completa por Bloco e Reescrita Camuflada")
+st.title("🎯 Sugestão Inteligente de Próxima Jogada (baseada em reescrita)")
 
 # Botões de entrada
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -34,7 +34,7 @@ with col5:
     if st.button("🧹 Limpar"):
         st.session_state.historico = []
 
-# Codifica estrutura simbólica de uma lista (ex: ABA)
+# Função para codificar estrutura
 def codificar_estrutura(lista):
     mapa = {}
     codigo = []
@@ -46,27 +46,27 @@ def codificar_estrutura(lista):
         codigo.append(mapa[item])
     return "".join(codigo)
 
-# Mostrar histórico em blocos de 27 jogadas (3 linhas de 9), mais recentes na Linha 1
+# Mostrar histórico por blocos (27 jogadas → 3 linhas de 9)
 def mostrar_blocos(historico):
     blocos = [historico[i:i+27] for i in range(0, len(historico), 27)]
     for idx, bloco in enumerate(reversed(blocos)):
         st.markdown(f"### 📦 Bloco {len(blocos) - idx} (mais recente acima)")
         for linha in range(3):
-            ini = (2 - linha) * 9
+            ini = linha * 9
             fim = ini + 9
             linha_jogadas = bloco[ini:fim]
             visual = " ".join(cores.get(x, x) for x in linha_jogadas)
             st.markdown(f"Linha {linha + 1}: {visual}")
     return blocos
 
-# 🎯 Sugestão Inteligente de Próxima Jogada (baseada em reescrita)
+# Mostrar histórico e blocos
 st.divider()
-st.markdown("## 🎯 Sugestão Inteligente de Próxima Jogada (baseada em reescrita)")
-
+st.markdown("## 📋 Histórico por blocos (27 jogadas)")
 blocos = mostrar_blocos(st.session_state.historico) if st.session_state.historico else []
 padrao_encontrado = False
 proxima_cor = None
 
+# Sugestão de jogada
 if len(blocos) >= 2:
     bloco_atual = blocos[-1]
     bloco_anterior = blocos[-2]
@@ -100,12 +100,16 @@ if len(blocos) >= 2:
         if padrao_encontrado:
             break
 
+# Resultado da sugestão
+st.divider()
+st.markdown("## 🎯 Sugestão com base em padrão detectado")
+
 if padrao_encontrado and proxima_cor:
     st.markdown(f"### 👉 Próxima cor sugerida: **{cores[proxima_cor]}**")
 else:
     st.info("Aguardando padrão confiável para sugerir próxima jogada.")
 
-# 📊 Frequência de Padrões Estruturais
+# Frequência de padrões
 st.divider()
 st.markdown("## 📊 Frequência de Padrões Estruturais (últimas jogadas)")
 
