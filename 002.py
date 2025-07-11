@@ -1,22 +1,20 @@
 import streamlit as st
 from collections import Counter
 
-# Emojis
 cores = {
     "C": "🔴",  # Casa
     "V": "🔵",  # Visitante
     "E": "🟡",  # Empate
 }
 
-# Histórico
+# Inicializa histórico
 if "historico" not in st.session_state:
     st.session_state.historico = []
 
-# Página
 st.set_page_config(page_title="FS Padrões Pro", layout="centered")
 st.title("🎯 Sugestão Inteligente de Próxima Jogada (baseada em reescrita)")
 
-# Botões de entrada
+# Botões
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     if st.button("🔴 Casa"):
@@ -34,7 +32,7 @@ with col5:
     if st.button("🧹 Limpar"):
         st.session_state.historico = []
 
-# Função para codificar estrutura
+# Codifica padrões estruturais
 def codificar_estrutura(lista):
     mapa = {}
     codigo = []
@@ -46,7 +44,7 @@ def codificar_estrutura(lista):
         codigo.append(mapa[item])
     return "".join(codigo)
 
-# Mostrar histórico por blocos (27 jogadas → 3 linhas de 9)
+# Exibe blocos invertendo ordem para o padrão do jogo real
 def mostrar_blocos(historico):
     blocos = [historico[i:i+27] for i in range(0, len(historico), 27)]
     for idx, bloco in enumerate(reversed(blocos)):
@@ -54,19 +52,19 @@ def mostrar_blocos(historico):
         for linha in range(3):
             ini = linha * 9
             fim = ini + 9
-            linha_jogadas = bloco[ini:fim]
+            linha_jogadas = bloco[ini:fim][::-1]  # ← Inverte para mostrar do mais recente ao mais antigo
             visual = " ".join(cores.get(x, x) for x in linha_jogadas)
             st.markdown(f"Linha {linha + 1}: {visual}")
     return blocos
 
-# Mostrar histórico e blocos
+# Blocos e histórico
 st.divider()
 st.markdown("## 📋 Histórico por blocos (27 jogadas)")
 blocos = mostrar_blocos(st.session_state.historico) if st.session_state.historico else []
 padrao_encontrado = False
 proxima_cor = None
 
-# Sugestão de jogada
+# Análise entre blocos
 if len(blocos) >= 2:
     bloco_atual = blocos[-1]
     bloco_anterior = blocos[-2]
@@ -100,7 +98,7 @@ if len(blocos) >= 2:
         if padrao_encontrado:
             break
 
-# Resultado da sugestão
+# Sugestão de jogada no topo
 st.divider()
 st.markdown("## 🎯 Sugestão com base em padrão detectado")
 
