@@ -1,5 +1,6 @@
 import streamlit as st
 from collections import defaultdict
+import re
 
 # Emojis para cada cor
 cores = {
@@ -14,7 +15,7 @@ if "historico" not in st.session_state:
 
 # Configuração da página
 st.set_page_config(page_title="FS Padrões Pro", layout="centered")
-st.title("📊 FS Padrões Pro – Detecção Inteligente de Padrões")
+st.title("📊 FS Padrões Pro – Detecção Avançada de Padrões")
 
 # Botões para entrada
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -62,103 +63,159 @@ if st.session_state.historico:
 else:
     st.info("Nenhuma jogada ainda registrada.")
 
-# Função para detectar padrões de reescrita na primeira linha
-def detectar_padrao_reescrita(historico):
-    if len(historico) < 15:  # Mínimo de 1 linha completa + 6 jogadas
+# Função para detectar padrões complexos
+def detectar_padroes_complexos(historico, janela=5):
+    if len(historico) < janela + 9:  # Mínimo de 1 linha completa + janela
         return None
     
-    # Extrair a primeira linha completa (9 jogadas)
+    # Extrair a primeira linha completa e o início da segunda
     primeira_linha = historico[:9]
+    segunda_linha = historico[9:9+janela] if len(historico) >= 9+janela else []
     
-    # Coletar todas as linhas completas do histórico
-    linhas_completas = []
-    for i in range(0, len(historico), 9):
-        if i + 9 <= len(historico):
-            linha = historico[i:i+9]
-            linhas_completas.append(linha)
+    # Padrões a serem detectados
+    padroes = {
+        "cores": defaultdict(list),
+        "estrutura": defaultdict(list)
+    }
     
-    if len(linhas_completas) < 2:
-        return None
+    # Analisar todo o histórico
+    for i in range(len(historico) - 9 - janela):
+        # Verificar padrão de cores
+        segmento = historico[i:i+janela]
+        chave_cores = "".join(segmento)
+        proxima_jogada = historico[i+janela]
+        padroes["cores"][chave_cores].append(proxima_jogada)
+        
+        # Verificar padrão estrutural
+        mapa = {}
+        codigo = []
+        letra = "A"
+        for item in segmento:
+            if item not in mapa:
+                mapa[item] = letra
+                letra = chr(ord(letra) + 1)
+            codigo.append(mapa[item])
+        chave_estrutura = "".join(codigo)
+        padroes["estrutura"][chave_estrutura].append(proxima_jogada)
     
-    # Procurar padrões de reescrita
-    padroes_detectados = []
-    for idx, linha in enumerate(linhas_completas[1:]):
-        # Verificar se a linha atual reescreve um padrão anterior
-        if linha == primeira_linha:
-            # Encontrar a próxima jogada após o padrão histórico
-            posicao_padrao = (idx + 1) * 9
-            if posicao_padrao < len(historico):
-                proxima_jogada = historico[posicao_padrao]
-                padroes_detectados.append(proxima_jogada)
+    # Verificar padrão atual no final da primeira linha
+    final_primeira_linha = primeira_linha[-janela:]
+    chave_atual_cores = "".join(final_primeira_linha)
     
-    # Se encontrou padrões, retornar a sugestão mais frequente
-    if padroes_detectados:
+    # Gerar chave estrutural para o padrão atual
+    mapa_atual = {}
+    codigo_atual = []
+    letra = "A"
+    for item in final_primeira_linha:
+        if item not in mapa_atual:
+            mapa_atual[item] = letra
+            letra = chr(ord(letra) + 1)
+        codigo_atual.append(mapa_atual[item])
+    chave_atual_estrutura = "".join(codigo_atual)
+    
+    # Resultados encontrados
+    resultados = []
+    
+    # Padrão de cores exatas
+    if chave_atual_cores in padroes["cores"]:
+        ocorrencias = padroes["cores"][chave_atual_cores]
         contagem = defaultdict(int)
-        for jogada in padroes_detectados:
+        for jogada in ocorrencias:
             contagem[jogada] += 1
         
-        # Ordenar por frequência
         sugestao = max(contagem, key=contagem.get)
-        confianca = contagem[sugestao] / len(padroes_detectados)
+        confianca = contagem[sugestao] / len(ocorrencias)
         
-        return {
-            "padrao": primeira_linha,
-            "ocorrencias": len(padroes_detectados),
+        resultados.append({
+            "tipo": "Cores Exatas",
+            "padrao": final_primeira_linha,
+            "ocorrencias": len(ocorrencias),
             "sugestao": sugestao,
             "confianca": confianca,
-            "historico": padroes_detectados
-        }
+            "detalhes": ocorrencias
+        })
     
-    return None
+    # Padrão estrutural
+    if chave_atual_estrutura in padroes["estrutura"]:
+        ocorrencias = padroes["estrutura"][chave_atual_estrutura]
+        contagem = defaultdict(int)
+        for jogada in ocorrencias:
+            contagem[jogada] += 1
+        
+        sugestao = max(contagem, key=contagem.get)
+        confianca = contagem[sugestao] / len(ocorrencias)
+        
+        resultados.append({
+            "tipo": "Estrutura Simbólica",
+            "padrao": final_primeira_linha,
+            "codigo": chave_atual_estrutura,
+            "ocorrencias": len(ocorrencias),
+            "sugestao": sugestao,
+            "confianca": confianca,
+            "detalhes": ocorrencias
+        })
+    
+    return resultados if resultados else None
 
-# Análise de padrões
+# Análise de padrões complexos
 st.divider()
-st.markdown("## 🔍 Análise de Reescrita na Primeira Linha")
+st.markdown("## 🔍 Análise Avançada de Padrões")
 
-resultado = detectar_padrao_reescrita(st.session_state.historico)
+# Parâmetro ajustável para tamanho do padrão
+janela_padrao = st.slider("Tamanho do Padrão para Análise", 3, 7, 5, help="Número de jogadas no final da primeira linha a serem consideradas")
 
-if resultado:
-    # Mostrar detecção
-    st.success(f"**🔁 Padrão Detectado!**")
-    
-    # Visualização do padrão
-    padrao_visual = " ".join([cores.get(x, x) for x in resultado["padrao"]])
-    st.markdown(f"- **Padrão na 1ª linha:** {padrao_visual}")
-    st.markdown(f"- **Ocorrências históricas:** {resultado['ocorrencias']} vezes")
-    
-    # Sugestão única com justificativa
-    st.divider()
-    st.markdown(f"## 🎯 Sugestão: {cores.get(resultado['sugestao'])}")
-    
-    # Justificativa detalhada
-    st.info("**Justificativa Técnica:**")
-    st.write(f"- Após ocorrências anteriores deste mesmo padrão, a próxima jogada foi:")
-    
-    # Mostrar histórico de transições
-    for i, jogada in enumerate(resultado["historico"]):
-        st.write(f"  → Ocorrência {i+1}: {cores.get(jogada)}")
-    
-    st.write(f"- **Frequência de sugestão:** {resultado['confianca']*100:.1f}%")
-    st.write("- A análise considera reescrita completa da primeira linha")
-    
-    # Explicação do comportamento
-    st.divider()
-    st.markdown("### 📊 Comportamento Típico:")
-    st.write("1. Quando a primeira linha se repete completamente (reescrita)")
-    st.write("2. O sistema sugere a jogada mais frequente após esse padrão")
-    st.write("3. Padrões com mais ocorrências têm maior confiabilidade")
+resultados = detectar_padroes_complexos(st.session_state.historico, janela=janela_padrao)
+
+if resultados:
+    # Mostrar todas as detecções
+    for resultado in resultados:
+        st.success(f"**🔍 Padrão Detectado! ({resultado['tipo']})**")
+        
+        # Visualização do padrão
+        padrao_visual = " ".join([cores.get(x, x) for x in resultado["padrao"]])
+        st.markdown(f"- **Padrão analisado:** {padrao_visual}")
+        
+        if "codigo" in resultado:
+            st.markdown(f"- **Estrutura codificada:** `{resultado['codigo']}`")
+        
+        st.markdown(f"- **Ocorrências históricas:** {resultado['ocorrencias']} vezes")
+        
+        # Sugestão
+        st.divider()
+        st.markdown(f"## 🎯 Sugestão: {cores.get(resultado['sugestao'])}")
+        st.markdown(f"**Confiança:** {resultado['confianca']*100:.1f}%")
+        
+        # Justificativa detalhada
+        st.info("**Justificativa Técnica:**")
+        st.write(f"- Após este padrão, as próximas jogadas foram:")
+        
+        # Agrupar ocorrências por tipo
+        contagem_detalhada = defaultdict(int)
+        for jogada in resultado["detalhes"]:
+            contagem_detalhada[jogada] += 1
+        
+        for jogada, count in contagem_detalhada.items():
+            percentual = count / len(resultado["detalhes"]) * 100
+            st.write(f"  - {cores.get(jogada)}: {count} vezes ({percentual:.1f}%)")
+        
+        st.write(f"- Total de ocorrências analisadas: {len(resultado['detalhes']}")
+        
+        # Espaçamento entre padrões
+        st.write("")
+        st.write("---")
+        st.write("")
     
 else:
-    if len(st.session_state.historico) >= 15:
-        st.warning("Nenhum padrão de reescrita detectado na primeira linha.")
-        st.info("Dica: Continue registrando jogadas para aumentar a base de padrões históricos")
+    if len(st.session_state.historico) >= 14:  # 9 + 5
+        st.warning("Nenhum padrão recorrente detectado no final da primeira linha.")
+        st.info("Dica: Tente ajustar o tamanho do padrão ou continue registrando jogadas")
     else:
-        st.info("Registre pelo menos 15 jogadas (1 linha completa + 6 jogadas) para ativar a análise")
+        st.info(f"Registre pelo menos {9+janela_padrao} jogadas para ativar a análise")
 
 st.divider()
-st.markdown("### 🔬 Como Funciona a Detecção:")
-st.write("1. **Foco na primeira linha completa:** Analisa os 9 elementos da linha atual")
-st.write("2. **Busca reescrita completa:** Procura ocorrências idênticas no histórico")
-st.write("3. **Analisa transições:** Examina a jogada imediatamente após cada ocorrência")
-st.write("4. **Sugestão única:** Recomenda a jogada mais frequente após o padrão")
-st.write("5. **Confiança estatística:** Calcula probabilidade com base em ocorrências históricas")
+st.markdown("### 🔬 Como Funciona a Detecção Avançada:")
+st.write("1. **Análise de cores exatas:** Detecta sequências idênticas de cores")
+st.write("2. **Análise estrutural:** Detecta padrões de repetição independente das cores específicas (ex: ABA, ABC, etc)")
+st.write("3. **Janela ajustável:** Permite focar em diferentes tamanhos de padrão")
+st.write("4. **Estatística robusta:** Sugere a jogada mais frequente após padrões similares")
+st.write("5. **Transparência:** Mostra todas as ocorrências históricas usadas na análise")
