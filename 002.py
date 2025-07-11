@@ -1,6 +1,5 @@
 import streamlit as st
 from collections import defaultdict
-import numpy as np
 
 # Emojis para cada cor
 cores = {
@@ -182,10 +181,11 @@ resultado = detectar_padrao_confiavel(st.session_state.historico,
 
 if resultado:
     # Mostrar apenas a melhor sugestão
-    st.success(f"**🎯 SUGESTÃO: {cores.get(resultado['sugestao']}**")
-    st.markdown(f"**Confiança:** {resultado['confianca']*100:.1f}%")
+    st.success(f"**🎯 SUGESTÃO: {cores.get(resultado['sugestao'])}**")
     
     # Detalhes do padrão
+    st.markdown(f"**Confiança:** {resultado['confianca']*100:.1f}%")
+    
     st.divider()
     st.markdown("### 🔍 Detalhes do Padrão Detectado")
     
