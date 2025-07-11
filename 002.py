@@ -81,7 +81,7 @@ def analisar_transicoes(historico):
     final_primeira_linha = primeira_linha[-3:]
     
     # Verificar transição para segunda linha
-    segunda_linha = historico[9:12]  # Primeiros 3 elementos da segunda linha
+    segunda_linha = historico[9:12] if len(historico) >= 12 else []  # Primeiros 3 elementos da segunda linha
     
     # Procurar padrões históricos semelhantes
     padroes_detectados = []
@@ -99,7 +99,8 @@ def analisar_transicoes(historico):
                 # Calcular estatísticas de transição
                 contagem = {"C": 0, "V": 0, "E": 0}
                 for item in transicao_historica:
-                    contagem[item] += 1
+                    if item in contagem:
+                        contagem[item] += 1
                 
                 padroes_detectados.append({
                     "padrao_final": final_linha_historica,
@@ -120,7 +121,7 @@ def analisar_transicoes(historico):
         
         # Determinar sugestão mais frequente
         sugestao = max(contagem_agregada, key=contagem_agregada.get)
-        confianca = contagem_agregada[sugestao] / (total_padroes * 3)
+        confianca = contagem_agregada[sugestao] / (total_padroes * 3) * 100
         
         return {
             "final_primeira_linha": final_primeira_linha,
@@ -155,7 +156,7 @@ if resultado:
     
     # Sugestão única com justificativa
     st.divider()
-    st.markdown(f"## 🎯 Sugestão: {cores.get(resultado['sugestao']}")
+    st.markdown(f"## 🎯 Sugestão: {cores.get(resultado['sugestao'])}")  # CORREÇÃO AQUI
     
     # Justificativa detalhada
     st.info("**Justificativa Técnica:**")
@@ -169,9 +170,10 @@ if resultado:
     
     st.write(f"- **Distribuição estatística:**")
     for cor, count in resultado["contagem_agregada"].items():
-        st.write(f"  - {cores.get(cor)}: {count} ocorrências ({count/(resultado['padroes_similares']*3)*100:.1f}%)")
+        percentual = count / (resultado['padroes_similares'] * 3) * 100
+        st.write(f"  - {cores.get(cor)}: {count} ocorrências ({percentual:.1f}%)")
     
-    st.write(f"- **Nível de confiança:** {resultado['confianca']*100:.1f}%")
+    st.write(f"- **Nível de confiança:** {resultado['confianca']:.1f}%")
     
     # Explicação do comportamento
     st.divider()
