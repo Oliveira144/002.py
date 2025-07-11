@@ -46,17 +46,17 @@ def codificar_estrutura(lista):
         codigo.append(mapa[item])
     return "".join(codigo)
 
-# Mostrar histórico em blocos de 27 jogadas (3 linhas de 9)
+# Mostrar histórico em blocos de 27 jogadas (3 linhas de 9), mais recentes no topo
 def mostrar_blocos(historico):
     blocos = [historico[i:i+27] for i in range(0, len(historico), 27)]
     for idx, bloco in enumerate(reversed(blocos)):
         st.markdown(f"### 📦 Bloco {len(blocos) - idx} (mais recente acima)")
-        for linha in range(3):
+        for linha in reversed(range(3)):
             ini = linha * 9
             fim = ini + 9
             linha_jogadas = bloco[ini:fim]
             visual = " ".join(cores.get(x, x) for x in linha_jogadas)
-            st.markdown(f"Linha {linha+1}: {visual}")
+            st.markdown(f"Linha {3 - linha}: {visual}")
     return blocos
 
 # 🎯 Sugestão Inteligente de Próxima Jogada (baseada em reescrita)
