@@ -1,5 +1,5 @@
 import streamlit as st
-from collections import defaultdict
+from collections import defaultdict, Counter
 import numpy as np
 
 # Emojis para cada cor
@@ -15,7 +15,7 @@ if "historico" not in st.session_state:
 
 # Configuração da página
 st.set_page_config(page_title="FS Padrões Pro", layout="centered")
-st.title("📊 FS Padrões Pro – Sugestão com Máxima Confiança")
+st.title("📊 FS Padrões Pro - Detector Universal de Padrões")
 
 # Botões para entrada
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -48,14 +48,7 @@ def mostrar_blocos(historico):
             if ini < len(bloco):
                 linha_jogadas = bloco[ini:fim]
                 visual = " ".join(cores.get(x, x) for x in linha_jogadas)
-                
-                # Destacar os últimos elementos da primeira linha
-                if idx == 0 and linha == 0 and len(linha_jogadas) >= 6:
-                    parte_inicial = " ".join(cores.get(x, x) for x in linha_jogadas[:-3])
-                    parte_final = " ".join(f"**{cores.get(x, x)}**" for x in linha_jogadas[-3:])
-                    st.markdown(f"{parte_inicial} {parte_final}")
-                else:
-                    st.markdown(visual)
+                st.markdown(visual)
 
 st.markdown("## 📋 Histórico por blocos (cada 27 jogadas)")
 if st.session_state.historico:
@@ -63,264 +56,193 @@ if st.session_state.historico:
 else:
     st.info("Nenhuma jogada ainda registrada.")
 
-# Função para detectar padrões com alta confiança
-def detectar_padrao_confiavel(historico, janela=5, min_ocorrencias=3):
-    if len(historico) < janela + 9:
-        return None
-    
-    primeira_linha = historico[:9]
-    final_primeira_linha = primeira_linha[-janela:]
-    
-    padroes_cores = defaultdict(list)
-    padroes_estrutura = defaultdict(list)
-    
-    for i in range(len(historico) - janela):
-        segmento = historico[i:i+janela]
-        proxima_jogada = historico[i+janela]
-        
-        chave_cores = "".join(segmento)
-        padroes_cores[chave_cores].append(proxima_jogada)
-        
-        mapa = {}
-        codigo = []
-        letra = "A"
-        for item in segmento:
-            if item not in mapa:
-                mapa[item] = letra
-                letra = chr(ord(letra) + 1)
-            codigo.append(mapa[item])
-        chave_estrutura = "".join(codigo)
-        padroes_estrutura[chave_estrutura].append(proxima_jogada)
-    
-    chave_atual_cores = "".join(final_primeira_linha)
-    
-    mapa_atual = {}
-    codigo_atual = []
-    letra = "A"
-    for item in final_primeira_linha:
-        if item not in mapa_atual:
-            mapa_atual[item] = letra
-            letra = chr(ord(letra) + 1)
-        codigo_atual.append(mapa_atual[item])
-    chave_atual_estrutura = "".join(codigo_atual)
-    
-    candidatos = []
-    
-    if chave_atual_cores in padroes_cores:
-        ocorrencias = padroes_cores[chave_atual_cores]
-        if len(ocorrencias) >= min_ocorrencias:
-            contagem = defaultdict(int)
-            for jogada in ocorrencias:
-                contagem[jogada] += 1
-            
-            jogada_mais_comum = max(contagem, key=contagem.get)
-            confianca = contagem[jogada_mais_comum] / len(ocorrencias)
-            
-            candidatos.append({
-                "tipo": "Cores Exatas",
-                "confianca": confianca,
-                "ocorrencias": len(ocorrencias),
-                "sugestao": jogada_mais_comum,
-                "detalhes": ocorrencias,
-                "padrao": final_primeira_linha
-            })
-    
-    if chave_atual_estrutura in padroes_estrutura:
-        ocorrencias = padroes_estrutura[chave_atual_estrutura]
-        if len(ocorrencias) >= min_ocorrencias:
-            contagem = defaultdict(int)
-            for jogada in ocorrencias:
-                contagem[jogada] += 1
-            
-            jogada_mais_comum = max(contagem, key=contagem.get)
-            confianca = contagem[jogada_mais_comum] / len(ocorrencias)
-            
-            candidatos.append({
-                "tipo": "Estrutura Simbólica",
-                "confianca": confianca,
-                "ocorrencias": len(ocorrencias),
-                "sugestao": jogada_mais_comum,
-                "detalhes": ocorrencias,
-                "padrao": final_primeira_linha,
-                "codigo": chave_atual_estrutura
-            })
-    
-    if not candidatos:
-        return None
-    
-    candidatos.sort(key=lambda x: (x['confianca'], x['ocorrencias']), reverse=True)
-    return candidatos[0]
-
-# Função para detectar padrões cíclicos (sem scipy)
+# Função para detectar padrões cíclicos para todas as cores
 def detectar_padroes_ciclicos(historico, tamanho_ciclo=27):
-    if len(historico) < tamanho_ciclo * 2:
-        return None
+    if len(historico) < tamanho_ciclo:
+        return []
     
-    mapeamento = {"C": 0, "V": 1, "E": 2}
-    try:
-        historico_numerico = np.array([mapeamento[j] for j in historico])
-    except KeyError:
-        st.error("Erro: Histórico contém valores inválidos. Use apenas 'C', 'V' ou 'E'.")
-        return None
+    padroes = []
     
-    padroes_significativos = []
-    
+    # Para cada posição no ciclo
     for posicao in range(tamanho_ciclo):
+        # Coletar todos os valores nesta posição cíclica
         valores = []
         for ciclo in range(len(historico) // tamanho_ciclo):
             idx = ciclo * tamanho_ciclo + posicao
-            if idx < len(historico_numerico):
-                valores.append(historico_numerico[idx])
+            if idx < len(historico):
+                valores.append(historico[idx])
         
-        total = len(valores)
-        if total < 10:  # Mínimo de 10 ocorrências
-            continue
+        # Se temos valores suficientes para análise
+        if len(valores) >= 5:
+            contador = Counter(valores)
+            cor_mais_comum, contagem = contador.most_common(1)[0]
+            frequencia = contagem / len(valores)
             
-        contagens = np.bincount(valores, minlength=3)
-        max_contagem = np.max(contagens)
-        freq_max = max_contagem / total
+            # Considerar padrão se frequência for alta
+            if frequencia > 0.7:  # 70% de ocorrência
+                padroes.append({
+                    "posicao": posicao,
+                    "cor": cor_mais_comum,
+                    "frequencia": frequencia,
+                    "ocorrencias": contagem,
+                    "total": len(valores),
+                    "valores": valores
+                })
+    
+    return padroes
+
+# Função para detectar sequências consecutivas
+def detectar_sequencias(historico, min_tamanho=3):
+    if not historico:
+        return []
+    
+    sequencias = []
+    sequencia_atual = []
+    
+    for i, resultado in enumerate(historico):
+        if not sequencia_atual or resultado == sequencia_atual[-1]:
+            sequencia_atual.append(resultado)
+        else:
+            if len(sequencia_atual) >= min_tamanho:
+                sequencias.append({
+                    "cor": sequencia_atual[0],
+                    "inicio": i - len(sequencia_atual),
+                    "fim": i - 1,
+                    "tamanho": len(sequencia_atual)
+                })
+            sequencia_atual = [resultado]
+    
+    # Verificar última sequência
+    if len(sequencia_atual) >= min_tamanho:
+        sequencias.append({
+            "cor": sequencia_atual[0],
+            "inicio": len(historico) - len(sequencia_atual),
+            "fim": len(historico) - 1,
+            "tamanho": len(sequencia_atual)
+        })
+    
+    return sequencias
+
+# Função para detectar padrões de repetição
+def detectar_padroes_repeticao(historico, tamanho_padrao=3):
+    padroes = []
+    
+    if len(historico) < tamanho_padrao * 2:
+        return padroes
+    
+    for i in range(len(historico) - tamanho_padrao * 2 + 1):
+        padrao = historico[i:i+tamanho_padrao]
+        proximos = historico[i+tamanho_padrao:i+tamanho_padrao*2]
         
-        # Critério simplificado (sem teste estatístico)
-        if freq_max > 0.65:  # 65% de frequência mínima
-            cor_dominante = np.argmax(contagens)
-            padroes_significativos.append({
-                "posicao_ciclo": posicao,
-                "cor": list(mapeamento.keys())[cor_dominante],
-                "frequencia": freq_max,
-                "ocorrencias": total
+        if padrao == proximos:
+            padroes.append({
+                "inicio": i,
+                "padrao": padrao,
+                "repeticao": i + tamanho_padrao
             })
     
-    return padroes_significativos
+    return padroes
 
-# Função para prever próximos ciclos
-def prever_proximos_ciclos(historico, padroes, tamanho_ciclo=27, ciclos_prever=3):
-    previsoes = []
+# Função para prever próxima jogada
+def prever_proxima_jogada(historico, padroes_ciclicos):
+    if not historico or not padroes_ciclicos:
+        return None
     
+    tamanho_ciclo = 27
     posicao_atual = len(historico) % tamanho_ciclo
     
-    for ciclo in range(1, ciclos_prever + 1):
-        previsao_ciclo = []
-        
-        for posicao in range(tamanho_ciclo):
-            padrao_encontrado = None
-            for p in padroes:
-                if p["posicao_ciclo"] == posicao:
-                    padrao_encontrado = p
-                    break
-            
-            if padrao_encontrado:
-                previsao_ciclo.append(padrao_encontrado["cor"])
-            else:
-                previsao_ciclo.append("?")
-        
-        previsoes.append(previsao_ciclo)
+    # Verificar se temos um padrão para esta posição
+    for padrao in padroes_ciclicos:
+        if padrao["posicao"] == posicao_atual:
+            return padrao["cor"]
     
-    return previsoes
+    return None
 
-# Análise de padrões curtos
+# Seção de análise de padrões
 st.divider()
-st.markdown("## 🔍 Análise de Padrões com Alta Confiança")
+st.markdown("## 🔍 Análise de Padrões")
 
-col1, col2 = st.columns(2)
-with col1:
-    janela_padrao = st.slider("Tamanho do Padrão", 3, 7, 5)
-with col2:
-    min_ocorrencias = st.slider("Mínimo de Ocorrências", 2, 10, 3)
-
-resultado = detectar_padrao_confiavel(st.session_state.historico, 
-                                     janela=janela_padrao,
-                                     min_ocorrencias=min_ocorrencias)
-
-if resultado:
-    st.success(f"**🎯 SUGESTÃO: {cores.get(resultado['sugestao'])}**")
-    st.markdown(f"**Confiança:** {resultado['confianca']*100:.1f}%")
-    
-    st.divider()
-    st.markdown("### 🔍 Detalhes do Padrão Detectado")
-    
-    padrao_visual = " ".join([cores.get(x, x) for x in resultado["padrao"]])
-    st.markdown(f"- **Padrão analisado:** {padrao_visual}")
-    st.markdown(f"- **Tipo de análise:** {resultado['tipo']}")
-    
-    if resultado['tipo'] == "Estrutura Simbólica":
-        st.markdown(f"- **Estrutura codificada:** `{resultado['codigo']}`")
-    
-    st.markdown(f"- **Ocorrências históricas:** {resultado['ocorrencias']}")
-    
-    st.divider()
-    st.markdown("### 📊 Estatísticas Históricas")
-    
-    contagem = defaultdict(int)
-    for jogada in resultado["detalhes"]:
-        contagem[jogada] += 1
-    
-    total = len(resultado["detalhes"])
-    st.write(f"Após este padrão, as próximas jogadas foram:")
-    
-    for jogada, count in contagem.items():
-        percentual = count / total * 100
-        st.progress(percentual/100, text=f"{cores.get(jogada)}: {count} vezes ({percentual:.1f}%)")
-    
-    st.caption(f"Total de ocorrências analisadas: {total}")
-    
-    st.divider()
-    st.markdown("### 💡 Por que esta sugestão?")
-    st.write(f"1. Padrão detectado com **{resultado['ocorrencias']} ocorrências** históricas")
-    st.write(f"2. **{cores.get(resultado['sugestao'])}** foi a jogada mais frequente após este padrão")
-    st.write(f"3. Taxa de acerto histórica: **{resultado['confianca']*100:.1f}%**")
-    
-else:
-    if len(st.session_state.historico) >= 9 + janela_padrao:
-        st.warning("Nenhum padrão confiável detectado")
-    else:
-        st.info(f"Registre pelo menos {9+janela_padrao} jogadas para ativar a análise")
-
-# Nova seção para análise cíclica
-st.divider()
-st.markdown("## 🔄 Análise de Padrões Cíclicos")
-
-if len(st.session_state.historico) >= 54:
+if st.session_state.historico:
+    # 1. Padrões Cíclicos
+    st.subheader("🔄 Padrões Cíclicos")
     padroes_ciclicos = detectar_padroes_ciclicos(st.session_state.historico)
     
     if padroes_ciclicos:
-        st.success(f"**🎯 PADRÕES CÍCLICOS DETECTADOS: {len(padroes_ciclicos)} posições significativas**")
+        st.success(f"Detectados {len(padroes_ciclicos)} padrões cíclicos!")
         
-        st.markdown("### 📈 Padrões por Posição no Ciclo")
-        dados_tabela = []
-        for padrao in padroes_ciclicos:
-            dados_tabela.append({
-                "Posição": padrao["posicao_ciclo"] + 1,
-                "Cor": cores.get(padrao["cor"]),
-                "Frequência": f"{padrao['frequencia']*100:.1f}%",
-                "Ocorrências": padrao["ocorrencias"]
+        # Tabela de padrões
+        dados = []
+        for p in padroes_ciclicos:
+            dados.append({
+                "Posição no Ciclo": p["posicao"] + 1,
+                "Cor": cores.get(p["cor"]),
+                "Frequência": f"{p['frequencia']*100:.1f}%",
+                "Ocorrências": f"{p['ocorrencias']}/{p['total']}"
             })
-        st.dataframe(dados_tabela)
+        st.dataframe(dados)
         
-        st.markdown("### 🔮 Previsão para Próximos Ciclos")
-        previsoes = prever_proximos_ciclos(st.session_state.historico, padroes_ciclicos)
-        
-        for i, ciclo_previsao in enumerate(previsoes):
-            st.markdown(f"#### Ciclo {len(st.session_state.historico)//27 + i + 1} (Previsão)")
-            
-            # Mostrar o ciclo previsto em 3 linhas de 9
-            for linha in range(3):
-                ini = linha * 9
-                fim = ini + 9
-                linha_jogadas = ciclo_previsao[ini:fim]
-                visual = " ".join([cores.get(x, x) if x != "?" else "❓" for x in linha_jogadas])
-                st.markdown(visual)
-            
-            # Contar azuis previstos
-            azuis_previstos = sum(1 for x in ciclo_previsao if x == "V")
-            st.metric(label="🔵 Azuis Previstos", value=azuis_previstos)
+        # Previsão para próxima jogada
+        proxima = prever_proxima_jogada(st.session_state.historico, padroes_ciclicos)
+        if proxima:
+            st.markdown(f"### 🎯 Próxima Jogada Prevista: {cores.get(proxima)}")
+            st.markdown(f"Baseada na posição {len(st.session_state.historico) % 27 + 1} do ciclo")
+        else:
+            st.info("Nenhuma previsão para a próxima jogada com base em padrões cíclicos")
     else:
-        st.warning("Nenhum padrão cíclico significativo encontrado")
+        st.warning("Nenhum padrão cíclico significativo detectado")
+        st.info("Adicione mais ciclos completos para melhor detecção")
+    
+    # 2. Sequências Consecutivas
+    st.subheader("➰ Sequências Consecutivas")
+    sequencias = detectar_sequencias(st.session_state.historico, min_tamanho=3)
+    
+    if sequencias:
+        for seq in sequencias:
+            st.markdown(f"- **{cores.get(seq['cor'])} repetido {seq['tamanho']} vezes** "
+                        f"(posições {seq['inicio']+1} a {seq['fim']+1})")
+    else:
+        st.info("Nenhuma sequência longa detectada (mínimo 3 repetições)")
+    
+    # 3. Padrões de Repetição
+    st.subheader("♻️ Padrões Repetidos")
+    padroes_repetidos = detectar_padroes_repeticao(st.session_state.historico, tamanho_padrao=3)
+    
+    if padroes_repetidos:
+        for padrao in padroes_repetidos:
+            padrao_visual = " ".join(cores.get(p) for p in padrao["padrao"])
+            st.markdown(f"- Padrão **{padrao_visual}** repetido "
+                        f"(primeiro em {padrao['inicio']+1}-{padrao['inicio']+3}, "
+                        f"depois em {padrao['repeticao']+1}-{padrao['repeticao']+3})")
+    else:
+        st.info("Nenhum padrão repetido detectado")
 else:
-    st.info("Registre pelo menos 2 ciclos completos (54 jogos) para ativar análise cíclica")
+    st.info("Adicione dados para começar a análise")
+
+# Seção de resumo estatístico
+st.divider()
+st.markdown("## 📊 Resumo Estatístico")
+
+if st.session_state.historico:
+    total = len(st.session_state.historico)
+    contagem = Counter(st.session_state.historico)
+    
+    cols = st.columns(3)
+    cols[0].metric("🔴 Casa", f"{contagem['C']} ({contagem['C']/total*100:.1f}%)")
+    cols[1].metric("🔵 Visitante", f"{contagem['V']} ({contagem['V']/total*100:.1f}%)")
+    cols[2].metric("🟡 Empate", f"{contagem['E']} ({contagem['E']/total*100:.1f}%)")
+    
+    # Distribuição em gráfico
+    st.bar_chart({
+        "Casa": [contagem['C']],
+        "Visitante": [contagem['V']],
+        "Empate": [contagem['E']]
+    })
+else:
+    st.info("Nenhum dado disponível para análise estatística")
 
 st.divider()
 st.markdown("### ⚙️ Como Funciona:")
-st.write("1. **Análise de curto prazo:** Padrões nos últimos jogos da primeira linha")
-st.write("2. **Análise cíclica:** Padrões recorrentes em posições fixas dos ciclos de 27 jogos")
-st.write("3. **Sugestões únicas:** Recomendações com base em evidências estatísticas")
-st.write("4. **Transparência:** Mostra toda a base de dados por trás das previsões")
+st.write("1. **Padrões Cíclicos**: Detecta cores dominantes em posições específicas dos ciclos de 27 jogos")
+st.write("2. **Sequências Consecutivas**: Identifica repetições de 3+ da mesma cor em sequência")
+st.write("3. **Padrões Repetidos**: Encontra sequências idênticas que se repetem no histórico")
+st.write("4. **Previsão**: Sugere próxima jogada baseada em padrões cíclicos detectados")
