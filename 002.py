@@ -158,21 +158,23 @@ def gerar_sugestoes(historico, padroes_ciclicos, sequencias, padroes_repetidos):
         for seq in sequencias_ativas:
             # Se a sequência tem 3 elementos, sugerir continuar
             if seq["tamanho"] == 3:
+                emoji_cor = cores.get(seq['cor'])
                 sugestoes.append({
                     "tipo": "Sequência Ativa",
                     "cor": seq["cor"],
                     "confianca": 0.7,
-                    "motivo": f"Sequência de 3 {cores.get(seq['cor']} consecutivos"
+                    "motivo": f"Sequência de 3 {emoji_cor} consecutivos"
                 })
             # Se a sequência é maior, sugerir oposto
             elif seq["tamanho"] >= 4:
                 cores_opostas = {"C": "V", "V": "C", "E": "C"}  # Simplificado
                 cor_oposta = cores_opostas.get(seq["cor"], "C")
+                emoji_oposto = cores.get(cor_oposta)
                 sugestoes.append({
                     "tipo": "Quebra de Sequência",
                     "cor": cor_oposta,
                     "confianca": 0.8,
-                    "motivo": f"Sequência longa de {seq['tamanho']} {cores.get(seq['cor'])} pode quebrar"
+                    "motivo": f"Sequência longa de {seq['tamanho']} {cores.get(seq['cor'])} pode quebrar - Sugere {emoji_oposto}"
                 })
     
     # 2. Sugestões baseadas em padrões cíclicos
@@ -201,22 +203,24 @@ def gerar_sugestoes(historico, padroes_ciclicos, sequencias, padroes_repetidos):
             if pos_apos_padrao < len(historico):
                 # O que aconteceu após o padrão na primeira ocorrência?
                 resultado_apos = historico[padrao_recente["inicio"] + padrao_recente["tamanho"]]
+                emoji_apos = cores.get(resultado_apos)
                 sugestoes.append({
                     "tipo": "Padrão Repetido",
                     "cor": resultado_apos,
                     "confianca": 0.75,
-                    "motivo": f"Padrão {' '.join(cores.get(p) for p in padrao_recente['padrao'])} se repetiu"
+                    "motivo": f"Padrão {' '.join(cores.get(p) for p in padrao_recente['padrao'])} se repetiu - Último resultado: {emoji_apos}"
                 })
     
     # 4. Sugestão baseada na tendência geral (se não houver outros padrões)
     if not sugestoes and historico:
-        contador = Counter(historico)
+        contador = Counter(st.session_state.historico)
         cor_mais_comum = contador.most_common(1)[0][0]
+        emoji_comum = cores.get(cor_mais_comum)
         sugestoes.append({
             "tipo": "Tendência Geral",
             "cor": cor_mais_comum,
             "confianca": contador[cor_mais_comum] / len(historico),
-            "motivo": f"Cor mais frequente no histórico"
+            "motivo": f"Cor mais frequente no histórico: {emoji_comum}"
         })
     
     return sugestoes
@@ -245,7 +249,8 @@ if st.session_state.historico:
         
         # Mostrar sugestão principal
         principal = sugestoes[0]
-        st.success(f"**🎯 SUGESTÃO PRINCIPAL: {cores.get(principal['cor'])}**")
+        emoji_principal = cores.get(principal['cor'])
+        st.success(f"**🎯 SUGESTÃO PRINCIPAL: {emoji_principal}**")
         st.markdown(f"**Tipo:** {principal['tipo']} | **Confiança:** {principal['confianca']*100:.0f}%")
         st.markdown(f"**Motivo:** {principal['motivo']}")
         
@@ -253,7 +258,8 @@ if st.session_state.historico:
         if len(sugestoes) > 1:
             st.markdown("### 🔍 Outras Sugestões")
             for i, sug in enumerate(sugestoes[1:]):
-                st.info(f"**{i+2}. {cores.get(sug['cor'])}**: {sug['tipo']} (Confiança: {sug['confianca']*100:.0f}%)")
+                emoji_sug = cores.get(sug['cor'])
+                st.info(f"**{i+2}. {emoji_sug}**: {sug['tipo']} (Confiança: {sug['confianca']*100:.0f}%)")
                 st.caption(f"{sug['motivo']}")
     else:
         st.warning("Nenhuma sugestão gerada com base nos padrões atuais")
@@ -286,7 +292,8 @@ if st.session_state.historico:
     st.subheader("➰ Sequências Consecutivas")
     if sequencias:
         for seq in sequencias:
-            st.markdown(f"- **{cores.get(seq['cor'])} repetido {seq['tamanho']} vezes** "
+            emoji_cor = cores.get(seq['cor'])
+            st.markdown(f"- **{emoji_cor} repetido {seq['tamanho']} vezes** "
                         f"(posições {seq['inicio']+1} a {seq['fim']+1})")
     else:
         st.info("Nenhuma sequência longa detectada (mínimo 3 repetições)")
