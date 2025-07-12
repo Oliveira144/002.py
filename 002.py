@@ -1,7 +1,6 @@
 import streamlit as st
 from collections import defaultdict
 import numpy as np
-from scipy import stats
 
 # Emojis para cada cor
 cores = {
@@ -152,7 +151,7 @@ def detectar_padrao_confiavel(historico, janela=5, min_ocorrencias=3):
     candidatos.sort(key=lambda x: (x['confianca'], x['ocorrencias']), reverse=True)
     return candidatos[0]
 
-# Função para detectar padrões cíclicos
+# Função para detectar padrões cíclicos (sem scipy)
 def detectar_padroes_ciclicos(historico, tamanho_ciclo=27):
     if len(historico) < tamanho_ciclo * 2:
         return None
@@ -173,32 +172,23 @@ def detectar_padroes_ciclicos(historico, tamanho_ciclo=27):
             if idx < len(historico_numerico):
                 valores.append(historico_numerico[idx])
         
-        if len(valores) < 2:
+        total = len(valores)
+        if total < 10:  # Mínimo de 10 ocorrências
             continue
             
         contagens = np.bincount(valores, minlength=3)
-        total = len(valores)
+        max_contagem = np.max(contagens)
+        freq_max = max_contagem / total
         
-        if np.count_nonzero(contagens) < 2:
-            continue
-        
-        try:
-            chi2, p_valor = stats.chisquare(contagens)
-        except ValueError:
-            continue
-        
-        if total >= 10 and p_valor < 0.05:
+        # Critério simplificado (sem teste estatístico)
+        if freq_max > 0.65:  # 65% de frequência mínima
             cor_dominante = np.argmax(contagens)
-            frequencia = contagens[cor_dominante] / total
-            
-            if frequencia > 0.6:
-                padroes_significativos.append({
-                    "posicao_ciclo": posicao,
-                    "cor": list(mapeamento.keys())[list(mapeamento.values()).index(cor_dominante)],
-                    "frequencia": frequencia,
-                    "ocorrencias": total,
-                    "p_valor": p_valor
-                })
+            padroes_significativos.append({
+                "posicao_ciclo": posicao,
+                "cor": list(mapeamento.keys())[cor_dominante],
+                "frequencia": freq_max,
+                "ocorrencias": total
+            })
     
     return padroes_significativos
 
@@ -302,8 +292,7 @@ if len(st.session_state.historico) >= 54:
                 "Posição": padrao["posicao_ciclo"] + 1,
                 "Cor": cores.get(padrao["cor"]),
                 "Frequência": f"{padrao['frequencia']*100:.1f}%",
-                "Ocorrências": padrao["ocorrencias"],
-                "Confiança Estatística": f"{(1-padrao['p_valor'])*100:.1f}%"
+                "Ocorrências": padrao["ocorrencias"]
             })
         st.dataframe(dados_tabela)
         
@@ -313,6 +302,7 @@ if len(st.session_state.historico) >= 54:
         for i, ciclo_previsao in enumerate(previsoes):
             st.markdown(f"#### Ciclo {len(st.session_state.historico)//27 + i + 1} (Previsão)")
             
+            # Mostrar o ciclo previsto em 3 linhas de 9
             for linha in range(3):
                 ini = linha * 9
                 fim = ini + 9
@@ -320,10 +310,11 @@ if len(st.session_state.historico) >= 54:
                 visual = " ".join([cores.get(x, x) if x != "?" else "❓" for x in linha_jogadas])
                 st.markdown(visual)
             
+            # Contar azuis previstos
             azuis_previstos = sum(1 for x in ciclo_previsao if x == "V")
             st.metric(label="🔵 Azuis Previstos", value=azuis_previstos)
     else:
-        st.warning("Nenhum padrão cíclico estatisticamente significativo encontrado")
+        st.warning("Nenhum padrão cíclico significativo encontrado")
 else:
     st.info("Registre pelo menos 2 ciclos completos (54 jogos) para ativar análise cíclica")
 
